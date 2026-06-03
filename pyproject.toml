@@ -1,6 +1,6 @@
 [project]
 name = "wepositive-di"
-version = "0.1.0"
+version = "0.1.1a0"
 description = "Adaptation of the dependency-injector framework to provide a simpler DI syntax slimiar to FastAPI's."
 authors = [
     {name = "Dolf Andringa",email = "dolf@wepositive.energy"}
