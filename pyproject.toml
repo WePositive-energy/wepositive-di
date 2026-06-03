@@ -1,12 +1,31 @@
 [project]
 name = "wepositive-di"
-version = "0.1.0"
-description = "Adaptation of the dependency-injector framework to provide a simpler DI syntax slimiar to FastAPI's."
+version = "0.1.1rc0"
+description = "Dependency injection and context management helpers inspired by FastAPI and built on dependency-injector."
+readme = "docs/index.md"
 authors = [
     {name = "Dolf Andringa",email = "dolf@wepositive.energy"}
 ]
+maintainers = [
+    {name = "WePositive", email = "info@wepositive.energy"}
+]
 license = "Apache-2.0"
 requires-python = ">=3.12"
+keywords = [
+    "dependency-injection",
+    "context-management",
+    "dependency-injector",
+    "fastapi",
+    "wepositive",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
 packages = [{include = "wepositive_di", from = "src"}]
 dependencies = [
     "dependency-injector (>=4.49.0,<5.0.0)",
@@ -14,6 +33,13 @@ dependencies = [
     "pydantic (>=2.13.4,<3.0.0)",
     "pydantic-settings (>=2.14.1,<3.0.0)"
 ]
+
+[project.urls]
+Homepage = "https://wepositive.energy"
+Documentation = "https://wepositive-energy.github.io/wepositive-di/"
+Repository = "https://github.com/WePositive-energy/wepositive-di"
+Issues = "https://github.com/WePositive-energy/wepositive-di/issues"
+Company = "https://wepositive.energy"
 
 
 [build-system]
