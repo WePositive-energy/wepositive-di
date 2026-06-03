@@ -1,6 +1,6 @@
 [project]
 name = "wepositive-di"
-version = "0.1.2a1"
+version = "0.1.2a2"
 description = "Dependency injection and context management helpers inspired by FastAPI and built on dependency-injector."
 readme = "docs/index.md"
 authors = [
@@ -60,6 +60,13 @@ dev = [
     "mkdocs-autorefs (>=1.4.4,<2.0.0)",
     "mkdocstrings-python (>=2.0.3,<3.0.0)"
 ]
+docs = [
+    "mkdocs-material (>=9.7.6,<10.0.0)",
+    "mkdocstrings (>=1.0.4,<2.0.0)",
+    "mkdocs-autorefs (>=1.4.4,<2.0.0)",
+    "mkdocstrings-python (>=2.0.3,<3.0.0)"
+]
+
 
 [tool.pyright]
 stubPath = "./typings/"
