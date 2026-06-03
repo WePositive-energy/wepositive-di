@@ -1,6 +1,6 @@
 [project]
 name = "wepositive-di"
-version = "0.1.4"
+version = "0.1.5"
 description = "Dependency injection and context management helpers inspired by FastAPI and built on dependency-injector."
 readme = "docs/index.md"
 authors = [
@@ -10,7 +10,7 @@ maintainers = [
     {name = "WePositive", email = "info@wepositive.energy"}
 ]
 license = "Apache-2.0"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 keywords = [
     "dependency-injection",
     "context-management",
@@ -23,6 +23,8 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Typing :: Typed",
 ]
@@ -129,4 +131,4 @@ extend-safe-fixes = ["UP"]
 
 [tool.ruff]
 extend-exclude = ["typings/*", "alembic/*"]
-target-version = "py312"
+target-version = "py310"
