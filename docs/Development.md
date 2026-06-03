@@ -5,9 +5,13 @@ This project uses Poetry, Ruff, Pyright, Pytest, and MkDocs.
 ## Setup
 
 ```bash
-poetry install
+poetry install --with dev,docs
 poetry run pre-commit install
 ```
+
+The `dev` group contains test, linting, type-checking, and pre-commit tools.
+The `docs` group contains MkDocs and mkdocstrings dependencies used to build the
+documentation locally.
 
 ## Tests and checks
 
