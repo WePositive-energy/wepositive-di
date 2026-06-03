@@ -1,10 +1,35 @@
 import concurrent.futures
-from collections.abc import Generator
-from contextlib import contextmanager
 from typing import Any
 
 import pytest
 
+from wepositive_di import (
+    Depends as RootDepends,
+)
+from wepositive_di import (
+    clear_overrides as root_clear_overrides,
+)
+from wepositive_di import (
+    context as root_context,
+)
+from wepositive_di import (
+    inject as root_inject,
+)
+from wepositive_di import (
+    override_provider as root_override_provider,
+)
+from wepositive_di import (
+    provider_overrides as root_provider_overrides,
+)
+from wepositive_di import (
+    register_provider as root_register_provider,
+)
+from wepositive_di import (
+    registry as root_registry,
+)
+from wepositive_di import (
+    setup as root_setup,
+)
 from wepositive_di.di import (
     Depends,
     clear_overrides,
@@ -14,7 +39,6 @@ from wepositive_di.di import (
 )
 
 
-@pytest.mark.skip_wire
 async def test_dependency_injection():
     @register_provider()
     async def config() -> dict[str, str]:
@@ -39,7 +63,18 @@ async def test_dependency_injection():
     assert await my_test_function2() == "test_value"
 
 
-@pytest.mark.skip_wire
+def test_common_di_api_is_available_from_package_root() -> None:
+    assert RootDepends is Depends
+    assert root_clear_overrides is clear_overrides
+    assert root_inject is inject
+    assert root_register_provider is register_provider
+    assert root_setup is setup
+    assert root_registry is not None
+    assert root_context is not None
+    assert callable(root_override_provider)
+    assert callable(root_provider_overrides)
+
+
 def test_singleton_works_for_sync():
     """Test that sync functions with singleton=True cache the result."""
     call_count = 0
@@ -68,7 +103,6 @@ def test_singleton_works_for_sync():
     assert call_count == 1
 
 
-@pytest.mark.skip_wire
 def test_singleton_raises_error_for_async():
     """Test that async functions cannot use singleton=True."""
     with pytest.raises(ValueError, match="cannot be a singleton"):  # noqa: PT012
@@ -80,7 +114,6 @@ def test_singleton_raises_error_for_async():
         async_counter()
 
 
-@pytest.mark.skip_wire
 def test_depends_with_string_name() -> None:
     """Test that Depends["string_name"] syntax works correctly."""
 
@@ -98,7 +131,6 @@ def test_depends_with_string_name() -> None:
     clear_overrides()
 
 
-@pytest.mark.skip_wire
 def test_inject_asyncio_run_path() -> None:
     """Test inject decorator using asyncio.run when no event loop."""
 
@@ -124,34 +156,6 @@ def test_inject_asyncio_run_path() -> None:
     clear_overrides()
 
 
-@pytest.mark.skip_wire
-def test_singleton_sync_generator() -> None:
-    """register_provider(singleton=True) on a sync generator.
-
-    Covers line 204: providers.Singleton(sync_gen_wrapper) registration path.
-    """
-    call_count = 0
-
-    @register_provider(singleton=True, context_manager=True)
-    @contextmanager
-    def counted_gen() -> Generator[int, None, None]:
-        nonlocal call_count
-        call_count += 1
-        try:
-            yield call_count
-        finally:
-            pass
-
-    @inject
-    def consumer(val: int = Depends[counted_gen]) -> int:
-        return val
-
-    setup()
-    assert consumer() == 1
-    assert call_count == 1
-
-
-@pytest.mark.skip_wire
 def test_setup_with_overrides_dict() -> None:
     """setup(overrides={...}) applies overrides before wiring.
 

@@ -18,6 +18,19 @@ from typing import (
 
 from dependency_injector import containers, providers
 
+from wepositive_di.providers import (
+    AsyncCMFactory as _AsyncCMFactory,
+)
+from wepositive_di.providers import (
+    AsyncSingletonCMFactory as _AsyncSingletonCMFactory,
+)
+from wepositive_di.providers import (
+    CMFactory as _CMFactory,
+)
+from wepositive_di.providers import (
+    SyncSingletonCMFactory as _SyncSingletonCMFactory,
+)
+
 logger = logging.getLogger(__name__)
 
 _registered_modules: set[Any] = set()
@@ -25,52 +38,6 @@ _provider_overrides: dict[str, providers.Provider[Any]] = {}
 _context_manager_providers: set[str] = set()
 
 registry = containers.DynamicContainer()
-
-
-_T = TypeVar("_T")
-
-
-class CMFactory(providers.Factory[AbstractContextManager[_T]]):
-    """Provider that creates a new sync context manager on every call.
-
-    The inject decorator detects this type and automatically calls __enter__,
-    passes the yielded value to the dependant function, then calls __exit__
-    with any exception raised — transparently to the caller.
-    """
-
-
-class AsyncCMFactory(
-    providers.Factory[Coroutine[Any, Any, AbstractAsyncContextManager[_T]]]
-):
-    """Provider that creates a new async context manager on every call.
-
-    The wrapper function is async (to resolve async Depends), so calling this
-    provider returns a coroutine that resolves to the context manager object.
-    The inject decorator awaits it to get the CM, then calls __aenter__, passes
-    the yielded value to the dependant function, and calls __aexit__ with any
-    exception raised — transparently to the caller.
-    """
-
-
-class SyncSingletonCMFactory(providers.Resource[_T]):
-    """Singleton sync context manager provider.
-
-    Inherits from providers.Resource so that the underlying context manager is
-    entered once, the yielded value is cached, and teardown is triggered by
-    registry.shutdown_resources(). Calling this provider returns the cached
-    value directly (no await needed).
-    """
-
-
-class AsyncSingletonCMFactory(providers.Resource[_T]):
-    """Singleton async context manager provider.
-
-    Inherits from providers.Resource so that the underlying context manager is
-    entered once, the yielded value is cached, and teardown is triggered by
-    registry.shutdown_resources(). Calling this provider returns a coroutine on
-    the first call (before the value is cached); the inject decorator awaits it
-    to obtain the yielded value.
-    """
 
 
 def _detect_lifecycle(
@@ -112,7 +79,7 @@ def _is_async_lifecycle_annotation(func: Callable[..., Any]) -> bool:
     Detects two patterns:
     1. Functions decorated with @asynccontextmanager — identified via the code
        object's co_qualname, which @wraps cannot change.
-    2. Functions whose return type annotation has __aenter__/__aexit__ (either
+    2. Functions whose return type annotation has `__aenter__`/`__aexit__` (either
        directly on the class, or proxied through a generic alias to its origin).
     """
     return _detect_lifecycle(
@@ -130,7 +97,7 @@ def _is_sync_lifecycle_annotation(func: Callable[..., Any]) -> bool:
     Detects two patterns:
     1. Functions decorated with @contextmanager — identified via the code
        object's co_qualname, which @wraps cannot change.
-    2. Functions whose return type annotation has __enter__/__exit__ (either
+    2. Functions whose return type annotation has `__enter__`/`__exit__` (either
        directly on the class, or proxied through a generic alias to its origin).
     """
     return _detect_lifecycle(
@@ -228,8 +195,8 @@ def _create_provider(
             return func(**(await _resolve_deps_async(sig)))
 
         if singleton:
-            return AsyncSingletonCMFactory(async_cm_wrapper)
-        return AsyncCMFactory(async_cm_wrapper)
+            return _AsyncSingletonCMFactory(async_cm_wrapper)
+        return _AsyncCMFactory(async_cm_wrapper)
 
     elif is_sync_cm:
 
@@ -237,8 +204,8 @@ def _create_provider(
             return func(**_resolve_deps_sync(sig, name, func.__name__))
 
         if singleton:
-            return SyncSingletonCMFactory(sync_cm_wrapper)
-        return CMFactory(sync_cm_wrapper)  # type: ignore[return-value]
+            return _SyncSingletonCMFactory(sync_cm_wrapper)
+        return _CMFactory(sync_cm_wrapper)  # type: ignore[return-value]
 
     elif is_async_func:
 
@@ -310,15 +277,16 @@ def setup(
         overrides: Optional dictionary of provider overrides to apply before wiring.
                   Maps original providers to their override implementations.
 
-    Example:
-        # Without overrides
-        setup()
+    Usage:
 
-        # With overrides
-        def redis_storage() -> ContextStorage:
-            return RedisContextStorage()
+    ```python
+    setup()
 
-        setup(overrides={context_storage_singleton: redis_storage})
+    def redis_storage() -> ContextStorage:
+        return RedisContextStorage()
+
+    setup(overrides={context_storage_singleton: redis_storage})
+    ```
     """
     if overrides:
         for original, override_func in overrides.items():
@@ -360,26 +328,24 @@ def override_provider(
     Returns:
         None when used as a function, decorator when used as @override_provider(original)
 
-    Example as function:
-        @register_provider()
-        async def config() -> Config:
-            return Config()
+    Usage:
 
-        # Override with plain function
-        async def prod_config() -> Config:
-            return Config(db_url="production")
+    ```python
+    @register_provider()
+    async def config() -> Config:
+        return Config()
 
-        override_provider(config, prod_config)
+    async def prod_config() -> Config:
+        return Config(db_url="production")
 
-    Example as decorator:
-        @register_provider()
-        async def config() -> Config:
-            return Config()
+    override_provider(config, prod_config)
+    ```
 
-        # Override with decorator
-        @override_provider(config)
-        async def prod_config() -> Config:
-            return Config(db_url="production")
+    ```python
+    @override_provider(config)
+    async def prod_config() -> Config:
+        return Config(db_url="production")
+    ```
     """
     provider_name = original if isinstance(original, str) else original.__name__
 
@@ -419,13 +385,15 @@ def provider_overrides(
     Args:
         overrides: Dictionary mapping original providers to their overrides
 
-    Example:
-        async def test_config() -> Config:
-            return Config(sqlalchemy_db_uri=SecretStr("sqlite:///:memory:"))
+    Usage:
 
-        with provider_overrides({config: test_config}):
-            # Code here uses test_config instead of config
-            result = await my_function()
+    ```python
+    async def test_config() -> Config:
+        return Config(sqlalchemy_db_uri=SecretStr("sqlite:///:memory:"))
+
+    with provider_overrides({config: test_config}):
+        result = await my_function()
+    ```
     """
     # Save current state
     old_overrides = _provider_overrides.copy()
@@ -514,27 +482,35 @@ def inject(func: Callable[..., Any]) -> Callable[..., Any]: ...
 def inject[T: Callable[..., Any]](func: T) -> T:
     """Decorator that resolves Depends markers in function arguments.
 
-    Works with both sync and async functions. The decorator:
-    1. Inspects the function signature for _DependsMarker defaults
-    2. At call time, resolves each marker by calling the registry provider
-    3. Handles context manager providers (CMFactory, AsyncCMFactory) transparently:
-       enters the CM, passes the yielded value to the function, exits on completion
-    4. Returns the appropriate wrapper (async or sync) based on the function type
+    Works with both sync and async functions.
+
+    The decorator:
+
+    - Inspects the function signature for `_DependsMarker` defaults.
+    - At call time, resolves each marker by calling the registry provider.
+    - Handles context manager providers transparently: enters the context manager,
+      passes the yielded value to the function, and exits on completion.
+    - Returns the appropriate wrapper based on the function type.
 
     Provider types and how they are resolved:
-    - AsyncCMFactory  → await coroutine → get CM → await __aenter__ → yield value
-    - CMFactory       → get CM → __enter__ → yield value
-    - providers.Coroutine → await result
-    - providers.Factory / providers.Singleton → use result directly
 
-    Example:
-        @inject
-        def my_func(config: Config = Depends[config]):
-            return config.value
+    - AsyncCMFactory: await coroutine, get context manager, await `__aenter__`.
+    - CMFactory: get context manager, call `__enter__`.
+    - providers.Coroutine: await result.
+    - providers.Factory / providers.Singleton: use result directly.
 
-        @inject
-        async def my_async_func(session: AsyncSession = Depends[async_session]):
-            return session.query(...)
+    Usage:
+
+    ```python
+    @inject
+    def my_func(config: Config = Depends[config]):
+        return config.value
+
+    @inject
+    async def my_async_func(session: AsyncSession = Depends[async_session]):
+        return session.query(...)
+    ```
+
     """
     sig = inspect.signature(func)
     dependant_is_async = inspect.iscoroutinefunction(
@@ -560,15 +536,15 @@ def inject[T: Callable[..., Any]](func: T) -> T:
             provider = _lookup_provider(value.name)
             result = provider()
 
-            if isinstance(provider, AsyncSingletonCMFactory):
+            if isinstance(provider, _AsyncSingletonCMFactory):
                 result = await result
-            elif isinstance(provider, SyncSingletonCMFactory):
+            elif isinstance(provider, _SyncSingletonCMFactory):
                 pass  # sync Resource returns the cached value directly
-            elif isinstance(provider, AsyncCMFactory):
+            elif isinstance(provider, _AsyncCMFactory):
                 cm = await result  # await async wrapper to get the CM object
                 async_lifecycles_to_cleanup.add(cm)
                 result = await cm.__aenter__()
-            elif isinstance(provider, CMFactory):
+            elif isinstance(provider, _CMFactory):
                 cm = result  # sync wrapper returns the CM directly
                 sync_lifecycles_to_cleanup.add(cm)
                 result = cm.__enter__()
@@ -598,17 +574,17 @@ def inject[T: Callable[..., Any]](func: T) -> T:
             provider = _lookup_provider(value.name)
             result = provider()
 
-            if isinstance(provider, AsyncSingletonCMFactory):
+            if isinstance(provider, _AsyncSingletonCMFactory):
                 with _create_event_loop(param_name, func.__name__) as loop:
                     result = loop.run_until_complete(result)
-            elif isinstance(provider, SyncSingletonCMFactory):
+            elif isinstance(provider, _SyncSingletonCMFactory):
                 pass  # sync Resource returns the cached value directly
-            elif isinstance(provider, AsyncCMFactory):
+            elif isinstance(provider, _AsyncCMFactory):
                 with _create_event_loop(param_name, func.__name__) as loop:
                     cm = loop.run_until_complete(result)  # await async wrapper → CM
                     async_lifecycles_to_cleanup.add(cm)
                     result = loop.run_until_complete(cm.__aenter__())
-            elif isinstance(provider, CMFactory):
+            elif isinstance(provider, _CMFactory):
                 cm = result
                 sync_lifecycles_to_cleanup.add(cm)
                 result = cm.__enter__()

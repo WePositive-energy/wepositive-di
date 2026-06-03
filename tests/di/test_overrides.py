@@ -4,7 +4,6 @@ from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager, contextmanager
 from typing import Any
 
-import pytest
 from pytest_mock import MockerFixture
 
 from wepositive_di.di import (
@@ -18,7 +17,6 @@ from wepositive_di.di import (
 )
 
 
-@pytest.mark.skip_wire
 async def test_provider_overrides_context_manager() -> None:
     """Test that provider_overrides context manager temporarily replaces providers."""
 
@@ -46,7 +44,6 @@ async def test_provider_overrides_context_manager() -> None:
     assert await my_service() == "production_db"
 
 
-@pytest.mark.skip_wire
 async def test_override_provider_function(mocker: MockerFixture) -> None:
     """Test the override_provider function for permanent overrides."""
 
@@ -72,7 +69,6 @@ async def test_override_provider_function(mocker: MockerFixture) -> None:
     clear_overrides()
 
 
-@pytest.mark.skip_wire
 async def test_override_provider_by_string_name(mocker: MockerFixture) -> None:
     """Test override_provider using string name instead of function reference."""
 
@@ -95,7 +91,6 @@ async def test_override_provider_by_string_name(mocker: MockerFixture) -> None:
     clear_overrides()
 
 
-@pytest.mark.skip_wire
 async def test_dependency_resolution_without_overrides(mocker: MockerFixture) -> None:
     """Test dependency resolution without any overrides active."""
 
@@ -113,7 +108,6 @@ async def test_dependency_resolution_without_overrides(mocker: MockerFixture) ->
     assert await get_data() == {"data": "from_registry"}
 
 
-@pytest.mark.skip_wire
 async def test_async_gen_no_override_path() -> None:
     """Test async generator wrapper when NOT using overrides (registry path)."""
 
@@ -141,7 +135,6 @@ async def test_async_gen_no_override_path() -> None:
     clear_overrides()
 
 
-@pytest.mark.skip_wire
 async def test_async_func_no_override_path() -> None:
     """Test async function wrapper when NOT using overrides (registry path)."""
 
@@ -163,7 +156,6 @@ async def test_async_func_no_override_path() -> None:
     clear_overrides()
 
 
-@pytest.mark.skip_wire
 def test_sync_gen_no_override_path() -> None:
     """Test sync generator wrapper when NOT using overrides (registry path)."""
 
@@ -189,7 +181,6 @@ def test_sync_gen_no_override_path() -> None:
     clear_overrides()
 
 
-@pytest.mark.skip_wire
 async def test_override_async_generator_with_dependencies() -> None:
     """Test overriding an async generator provider that has dependencies."""
 
@@ -224,7 +215,6 @@ async def test_override_async_generator_with_dependencies() -> None:
     clear_overrides()
 
 
-@pytest.mark.skip_wire
 def test_override_sync_generator_with_dependencies() -> None:
     """Test overriding a sync generator provider that has dependencies."""
 
@@ -259,7 +249,6 @@ def test_override_sync_generator_with_dependencies() -> None:
     clear_overrides()
 
 
-@pytest.mark.skip_wire
 async def test_async_generator_provider_with_override_in_wrapper() -> None:
     """Test async generator that resolves an overridden dependency internally."""
 
@@ -288,7 +277,6 @@ async def test_async_generator_provider_with_override_in_wrapper() -> None:
     clear_overrides()
 
 
-@pytest.mark.skip_wire
 def test_sync_generator_provider_with_override_in_wrapper() -> None:
     """Test sync generator that resolves an overridden dependency internally."""
 
@@ -317,7 +305,6 @@ def test_sync_generator_provider_with_override_in_wrapper() -> None:
     clear_overrides()
 
 
-@pytest.mark.skip_wire
 async def test_inject_with_override_path() -> None:
     """Test inject decorator resolves overridden provider via _provider_overrides."""
 
@@ -341,7 +328,6 @@ async def test_inject_with_override_path() -> None:
 # ── Override path inside provider wrappers ────────────────────────────────────
 
 
-@pytest.mark.skip_wire
 async def test_async_func_wrapper_resolves_overridden_dep() -> None:
     """Override active when async func provider resolves its own dependency.
 
@@ -370,7 +356,6 @@ async def test_async_func_wrapper_resolves_overridden_dep() -> None:
     clear_overrides()
 
 
-@pytest.mark.skip_wire
 def test_sync_func_wrapper_resolves_overridden_dep() -> None:
     """Override active when sync func provider resolves its own dependency.
 
@@ -401,7 +386,6 @@ def test_sync_func_wrapper_resolves_overridden_dep() -> None:
 # ── @override_provider used as a decorator ────────────────────────────────────
 
 
-@pytest.mark.skip_wire
 async def test_override_provider_decorator_syntax() -> None:
     """@override_provider(original) used as a decorator.
 

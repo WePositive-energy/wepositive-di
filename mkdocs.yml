@@ -1,5 +1,5 @@
-site_name: CEM
-site_description: WePositive-DI
+site_name: WePositive DI
+site_description: Dependency injection and context management helpers for Python applications.
 repo_url: https://github.com/WePositive-energy/wepositive-di
 docs_dir: docs
 site_dir: docs_html
@@ -41,4 +41,14 @@ markdown_extensions:
       permalink: true
 
 nav:
-  - Home: README.md
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Providers: providers.md
+  - Context Management: context-management.md
+  - Overrides & Testing: overrides-testing.md
+  - Deployment: deployment.md
+  - API Reference:
+      - Dependency Injection: api/di.md
+      - Provider Classes: api/providers.md
+      - Context Storage: api/context.md
+  - Development: Development.md

@@ -28,7 +28,6 @@ def cleanup_tracker(mocker: MockerFixture) -> MagicMock:
     return tracker
 
 
-@pytest.mark.skip_wire
 async def test_async_generator_dependency_in_async_function(
     mocker: MockerFixture, cleanup_tracker: MagicMock
 ) -> None:
@@ -55,7 +54,6 @@ async def test_async_generator_dependency_in_async_function(
     cleanup_tracker.async_gen_cleanup.assert_awaited_once()
 
 
-@pytest.mark.skip_wire
 async def test_sync_generator_dependency_in_async_function(
     mocker: MockerFixture, cleanup_tracker: MagicMock
 ) -> None:
@@ -82,7 +80,6 @@ async def test_sync_generator_dependency_in_async_function(
     cleanup_tracker.sync_gen_cleanup.assert_called_once()
 
 
-@pytest.mark.skip_wire
 def test_sync_generator_dependency_in_sync_function(
     mocker: MockerFixture, cleanup_tracker: MagicMock
 ) -> None:
@@ -109,7 +106,6 @@ def test_sync_generator_dependency_in_sync_function(
     cleanup_tracker.sync_gen_cleanup.assert_called_once()
 
 
-@pytest.mark.skip_wire
 def test_async_generator_dependency_in_sync_function(
     mocker: MockerFixture, cleanup_tracker: MagicMock
 ) -> None:
@@ -158,78 +154,6 @@ def test_async_generator_dependency_in_sync_function(
     cleanup_tracker.async_gen_cleanup.assert_called_once()
 
 
-@pytest.mark.skip_wire
-def test_async_coroutine_dependency_in_sync_function() -> None:
-    """Test async coroutine (regular async function) as dependency in sync function (sync context).
-
-    This test runs in a thread to simulate a true sync context (no event loop).
-    """
-    import threading
-
-    call_count = 0
-
-    @register_provider()
-    async def async_config_provider() -> dict[str, Any]:
-        nonlocal call_count
-        call_count += 1
-        return {
-            "api_url": "https://api.example.com",
-            "timeout": 30,
-            "call_count": call_count,
-        }
-
-    @inject
-    def get_api_url(config: dict[str, Any] = Depends[async_config_provider]) -> str:
-        return config["api_url"]
-
-    setup()
-
-    result_container: list[str] = []
-    error_container: list[Exception] = []
-
-    def run_test():
-        try:
-            result = get_api_url()
-            result_container.append(result)
-        except Exception as e:  # noqa: BLE001
-            error_container.append(e)
-
-    thread = threading.Thread(target=run_test)
-    thread.start()
-    thread.join()
-
-    if error_container:
-        raise error_container[0]
-
-    assert len(result_container) == 1
-    assert result_container[0] == "https://api.example.com"
-    assert call_count == 1
-
-
-@pytest.mark.skip_wire
-async def test_async_dependency_in_sync_function_from_async_context_errors() -> None:
-    """Test that sync functions with async dependencies error when called from async context."""
-
-    @register_provider()
-    async def async_config_provider() -> dict[str, Any]:
-        return {"api_url": "https://api.example.com"}
-
-    @inject
-    def sync_func_with_async_dep(
-        config: dict[str, Any] = Depends[async_config_provider],
-    ) -> str:
-        return config["api_url"]
-
-    setup()
-
-    with pytest.raises(
-        RuntimeError,
-        match=r"Cannot resolve async dependency 'config' in sync function 'sync_func_with_async_dep' from within an async context",
-    ):
-        sync_func_with_async_dep()
-
-
-@pytest.mark.skip_wire
 async def test_async_generator_in_sync_function_from_async_context_errors(
     mocker: MockerFixture,
 ) -> None:
@@ -255,7 +179,6 @@ async def test_async_generator_in_sync_function_from_async_context_errors(
         sync_func_with_async_gen()  # type: ignore[reportUnusedCoroutine]
 
 
-@pytest.mark.skip_wire
 async def test_async_generator_cleanup_with_exception(
     mocker: MockerFixture, cleanup_tracker: MagicMock
 ) -> None:
@@ -283,7 +206,6 @@ async def test_async_generator_cleanup_with_exception(
     cleanup_tracker.async_gen_cleanup.assert_awaited_once()
 
 
-@pytest.mark.skip_wire
 async def test_sync_generator_cleanup_with_exception_in_async(
     mocker: MockerFixture, cleanup_tracker: MagicMock
 ) -> None:
@@ -311,7 +233,6 @@ async def test_sync_generator_cleanup_with_exception_in_async(
     cleanup_tracker.sync_gen_cleanup.assert_called_once()
 
 
-@pytest.mark.skip_wire
 def test_sync_generator_cleanup_with_exception_in_sync(
     mocker: MockerFixture, cleanup_tracker: MagicMock
 ) -> None:
@@ -339,7 +260,6 @@ def test_sync_generator_cleanup_with_exception_in_sync(
     cleanup_tracker.sync_gen_cleanup.assert_called_once()
 
 
-@pytest.mark.skip_wire
 async def test_multiple_generators_cleanup_in_order(
     mocker: MockerFixture, cleanup_tracker: MagicMock
 ) -> None:
@@ -381,7 +301,6 @@ async def test_multiple_generators_cleanup_in_order(
     assert cleanup_tracker.async_gen_cleanup.await_count == 2
 
 
-@pytest.mark.skip_wire
 async def test_async_generator_cleanup_handles_exception_in_cleanup(
     mocker: MockerFixture, cleanup_tracker: MagicMock
 ) -> None:
@@ -417,7 +336,6 @@ async def test_async_generator_cleanup_handles_exception_in_cleanup(
     _ = cleanup_tracker
 
 
-@pytest.mark.skip_wire
 async def test_generator_cleanup_with_stop_iteration(mocker: MockerFixture) -> None:
     """Test that a CM that yields once and exits cleanly works correctly."""
     from contextlib import asynccontextmanager
@@ -440,7 +358,6 @@ async def test_generator_cleanup_with_stop_iteration(mocker: MockerFixture) -> N
     assert result == "test"
 
 
-@pytest.mark.skip_wire
 async def test_async_generator_with_async_dependency_coroutine_resolution() -> None:
     """Test async CM provider resolving an async dependency."""
     from contextlib import asynccontextmanager
@@ -469,29 +386,6 @@ async def test_async_generator_with_async_dependency_coroutine_resolution() -> N
     clear_overrides()
 
 
-@pytest.mark.skip_wire
-async def test_async_function_with_async_dependency_coroutine_resolution() -> None:
-    """Test async function resolving an async dependency that's a coroutine."""
-
-    @register_provider()
-    async def async_dep() -> int:
-        return 555
-
-    @register_provider()
-    async def func_with_async_dep(val: int = Depends[async_dep]) -> int:
-        return val * 3
-
-    @inject
-    async def consumer(value: int = Depends[func_with_async_dep]) -> int:
-        return value
-
-    result = await consumer()
-    assert result == 1665  # 555 * 3
-
-    clear_overrides()
-
-
-@pytest.mark.skip_wire
 def test_singleton_sync_cm_entered_once_and_teardown_on_shutdown() -> None:
     """A singleton sync CM provider is entered once and its teardown runs on
     registry shutdown, even when the injected function is called multiple times.
@@ -533,7 +427,6 @@ def test_singleton_sync_cm_entered_once_and_teardown_on_shutdown() -> None:
     assert exit_count == 1, "Teardown should run exactly once on shutdown"
 
 
-@pytest.mark.skip_wire
 async def test_singleton_async_cm_entered_once_and_teardown_on_shutdown() -> None:
     """A singleton async CM provider is entered once and its teardown runs on
     registry shutdown, even when the injected function is called multiple times.
@@ -575,3 +468,394 @@ async def test_singleton_async_cm_entered_once_and_teardown_on_shutdown() -> Non
     await registry.shutdown_resources()  # pyright: ignore[reportGeneralTypeIssues]
 
     assert exit_count == 1, "Teardown should run exactly once on shutdown"
+
+
+def test_sync_cm_factory_enters_and_exits_for_each_use() -> None:
+    enter_count = 0
+    exit_count = 0
+
+    @register_provider(context_manager=True)
+    @contextmanager
+    def resource() -> Generator[dict[str, int], None, None]:
+        nonlocal enter_count, exit_count
+        enter_count += 1
+        try:
+            yield {"id": enter_count}
+        finally:
+            exit_count += 1
+
+    @inject
+    def use_resource(res: dict[str, int] = Depends[resource]) -> dict[str, int]:
+        return res
+
+    first = use_resource()
+    second = use_resource()
+
+    assert first == {"id": 1}
+    assert second == {"id": 2}
+    assert enter_count == 2
+    assert exit_count == 2
+
+
+async def test_async_cm_factory_enters_and_exits_for_each_use() -> None:
+    enter_count = 0
+    exit_count = 0
+
+    @register_provider(context_manager=True)
+    @asynccontextmanager
+    async def resource() -> AsyncGenerator[dict[str, int], None]:
+        nonlocal enter_count, exit_count
+        enter_count += 1
+        try:
+            yield {"id": enter_count}
+        finally:
+            exit_count += 1
+
+    @inject
+    async def use_resource(res: dict[str, int] = Depends[resource]) -> dict[str, int]:
+        return res
+
+    first = await use_resource()
+    second = await use_resource()
+
+    assert first == {"id": 1}
+    assert second == {"id": 2}
+    assert enter_count == 2
+    assert exit_count == 2
+
+
+def test_context_manager_flag_rejects_plain_provider() -> None:
+    def plain_provider() -> str:
+        return "not a context manager"
+
+    with pytest.raises(ValueError, match="context_manager=True"):
+        register_provider(context_manager=True)(plain_provider)
+
+
+def test_plain_provider_with_invalid_lifecycle_annotation_still_works() -> None:
+    def provider() -> str:
+        return "value"
+
+    provider.__annotations__["return"] = "MissingType"
+
+    register_provider()(provider)
+
+    @inject
+    def consumer(value: str = Depends[provider]) -> str:
+        return value
+
+    assert consumer() == "value"
+
+
+async def test_cached_lifecycle_detection_for_context_manager_provider() -> None:
+    @register_provider(context_manager=True)
+    @contextmanager
+    def resource() -> Generator[str, None, None]:
+        yield "value"
+
+    @inject
+    async def first(value: str = Depends[resource]) -> str:
+        return value
+
+    @inject
+    async def second(value: str = Depends[resource]) -> str:
+        return value
+
+    assert await first() == "value"
+    assert await second() == "value"
+
+
+def test_lifecycle_detection_cache_and_unsettable_attribute_branch() -> None:
+    @contextmanager
+    def resource() -> Generator[str, None, None]:
+        yield "value"
+
+    def bad_annotation() -> str:
+        return "value"
+
+    bad_annotation.__annotations__["return"] = "MissingType"
+
+    register_provider(context_manager=True, name="resource_one")(resource)
+    register_provider(context_manager=True, name="resource_two")(resource)
+
+    with pytest.raises(ValueError, match="context_manager=True"):
+        register_provider(context_manager=True)(bad_annotation)
+
+    with pytest.raises(ValueError, match="context_manager=True"):
+        register_provider(context_manager=True)(len)
+
+
+def test_singleton_sync_generator() -> None:
+    call_count = 0
+
+    @register_provider(singleton=True, context_manager=True)
+    @contextmanager
+    def counted_gen() -> Generator[int, None, None]:
+        nonlocal call_count
+        call_count += 1
+        try:
+            yield call_count
+        finally:
+            pass
+
+    @inject
+    def consumer(val: int = Depends[counted_gen]) -> int:
+        return val
+
+    setup()
+
+    assert consumer() == 1
+    assert call_count == 1
+
+
+async def test_async_function_can_use_singleton_sync_context_manager() -> None:
+    @register_provider(singleton=True, context_manager=True)
+    @contextmanager
+    def resource() -> Generator[str, None, None]:
+        yield "value"
+
+    @inject
+    async def consumer(value: str = Depends[resource]) -> str:
+        return value
+
+    assert await consumer() == "value"
+    registry.shutdown_resources()
+
+
+def test_sync_function_with_singleton_async_context_manager_reports_loop_mismatch() -> None:
+    @register_provider(singleton=True, context_manager=True)
+    @asynccontextmanager
+    async def resource() -> AsyncGenerator[str, None]:
+        yield "value"
+
+    @inject
+    def consumer(value: str = Depends[resource]) -> str:
+        return value
+
+    with pytest.raises(ValueError, match="different loop"):
+        consumer()
+
+
+async def test_async_cleanup_suppression_branch_is_exercised() -> None:
+    class SuppressingAsyncContext:
+        async def __aenter__(self) -> str:
+            return "value"
+
+        async def __aexit__(self, *_exc_info: object) -> bool:
+            return True
+
+    @register_provider(context_manager=True)
+    def resource() -> SuppressingAsyncContext:
+        return SuppressingAsyncContext()
+
+    @inject
+    async def consumer(value: str = Depends[resource]) -> None:
+        _ = value
+        raise ValueError("body failed")
+
+    with pytest.raises(ValueError, match="body failed"):
+        await consumer()
+
+
+async def test_sync_cleanup_suppression_branch_in_async_function_is_exercised() -> None:
+    class SuppressingSyncContext:
+        def __enter__(self) -> str:
+            return "value"
+
+        def __exit__(self, *_exc_info: object) -> bool:
+            return True
+
+    @register_provider(context_manager=True)
+    def resource() -> SuppressingSyncContext:
+        return SuppressingSyncContext()
+
+    @inject
+    async def consumer(value: str = Depends[resource]) -> None:
+        _ = value
+        raise ValueError("body failed")
+
+    with pytest.raises(ValueError, match="body failed"):
+        await consumer()
+
+
+def test_sync_cleanup_suppression_branch_is_exercised() -> None:
+    class SuppressingSyncContext:
+        def __enter__(self) -> str:
+            return "value"
+
+        def __exit__(self, *_exc_info: object) -> bool:
+            return True
+
+    @register_provider(context_manager=True)
+    def resource() -> SuppressingSyncContext:
+        return SuppressingSyncContext()
+
+    @inject
+    def consumer(value: str = Depends[resource]) -> None:
+        _ = value
+        raise ValueError("body failed")
+
+    with pytest.raises(ValueError, match="body failed"):
+        consumer()
+
+
+def test_async_cleanup_suppression_branch_in_sync_function_is_exercised() -> None:
+    class SuppressingAsyncContext:
+        async def __aenter__(self) -> str:
+            return "value"
+
+        async def __aexit__(self, *_exc_info: object) -> bool:
+            return True
+
+    @register_provider(context_manager=True)
+    def resource() -> SuppressingAsyncContext:
+        return SuppressingAsyncContext()
+
+    @inject
+    def consumer(value: str = Depends[resource]) -> None:
+        _ = value
+        raise ValueError("body failed")
+
+    with pytest.raises(ValueError, match="body failed"):
+        consumer()
+
+
+async def test_async_context_manager_cleanup_runs_when_injected_function_raises(
+    mocker: MockerFixture,
+) -> None:
+    cleanup_called = False
+
+    @register_provider(context_manager=True)
+    @asynccontextmanager
+    async def generator_with_exception_handler() -> AsyncGenerator[Any, None]:
+        resource: Any = mocker.MagicMock()
+        try:
+            yield resource
+        finally:
+            nonlocal cleanup_called
+            cleanup_called = True
+
+    @inject
+    async def failing_function(
+        resource: Any = Depends[generator_with_exception_handler],
+    ) -> None:
+        _ = resource
+        raise ValueError("Function error")
+
+    setup()
+
+    with pytest.raises(ValueError, match="Function error"):
+        await failing_function()
+
+    assert cleanup_called
+
+
+def test_sync_context_manager_cleanup_runs_when_injected_function_raises(
+    mocker: MockerFixture,
+) -> None:
+    cleanup_called = False
+
+    @register_provider(context_manager=True)
+    @contextmanager
+    def generator_with_exception_handler() -> Generator[Any, None, None]:
+        resource: Any = mocker.MagicMock()
+        try:
+            yield resource
+        finally:
+            nonlocal cleanup_called
+            cleanup_called = True
+
+    @inject
+    def failing_function(
+        resource: Any = Depends[generator_with_exception_handler],
+    ) -> None:
+        _ = resource
+        raise OSError("Function error")
+
+    setup()
+
+    with pytest.raises(OSError, match="Function error"):
+        failing_function()
+
+    assert cleanup_called
+
+
+async def test_async_context_manager_cleanup_exception_replaces_body_exception(
+    mocker: MockerFixture,
+) -> None:
+    @register_provider(context_manager=True)
+    @asynccontextmanager
+    async def generator_that_fails_cleanup() -> AsyncGenerator[Any, None]:
+        resource: Any = mocker.MagicMock()
+        try:
+            yield resource
+        except ValueError:
+            raise RuntimeError("Cleanup error")
+
+    @inject
+    async def failing_function(
+        resource: Any = Depends[generator_that_fails_cleanup],
+    ) -> None:
+        _ = resource
+        raise ValueError("Function error")
+
+    setup()
+
+    with pytest.raises(RuntimeError, match="Cleanup error"):
+        await failing_function()
+
+
+def test_sync_context_manager_cleanup_exception_replaces_body_exception(
+    mocker: MockerFixture,
+) -> None:
+    @register_provider(context_manager=True)
+    @contextmanager
+    def generator_that_fails_cleanup() -> Generator[Any, None, None]:
+        resource: Any = mocker.MagicMock()
+        try:
+            yield resource
+        except OSError:
+            raise RuntimeError("Cleanup error")
+
+    @inject
+    def failing_function(resource: Any = Depends[generator_that_fails_cleanup]) -> None:
+        _ = resource
+        raise OSError("Function error")
+
+    setup()
+
+    with pytest.raises(RuntimeError, match="Cleanup error"):
+        failing_function()
+
+
+async def test_mixed_sync_async_context_managers_cleanup_after_exception() -> None:
+    cleanup_order: list[str] = []
+
+    @register_provider(context_manager=True)
+    @asynccontextmanager
+    async def async_gen() -> AsyncGenerator[Any, None]:
+        try:
+            yield "async"
+        finally:
+            cleanup_order.append("async")
+
+    @register_provider(context_manager=True)
+    @contextmanager
+    def sync_gen() -> Generator[Any, None, None]:
+        try:
+            yield "sync"
+        finally:
+            cleanup_order.append("sync")
+
+    @inject
+    async def use_both(a: Any = Depends[async_gen], s: Any = Depends[sync_gen]) -> None:
+        _ = (a, s)
+        raise ValueError("Test error")
+
+    setup()
+
+    with pytest.raises(ValueError, match="Test error"):
+        await use_both()
+
+    assert "async" in cleanup_order
+    assert "sync" in cleanup_order
