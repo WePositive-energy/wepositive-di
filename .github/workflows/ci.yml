@@ -1,0 +1,80 @@
+name: CI
+on:
+  pull_request:
+    branches::
+      - dev
+      - main
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  version_changed:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - id: version_changed
+        if: github.actor != 'dependabot[bot]'
+        name: Check version number changed
+        run: git fetch && ! git --no-pager diff origin/${{ github.event.pull_request.base.ref }} --quiet --exit-code -G version -- pyproject.toml
+  linting-and-tests:
+    needs: [version_changed]
+    runs-on: ubuntu-22.04
+    services:
+      # Label used to access the service container
+      postgres:
+        # Docker Hub image
+        image: postgres
+        # Provide the password for postgres
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+        # Set health checks to wait until postgres has started
+        ports:
+          - "5432:5432"
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: abatilo/actions-poetry@v3
+      - uses: actions/cache@v4
+        name: Setup cache
+        with:
+          path: ./.venv
+          key: poetry-lock-${{ hashFiles('poetry.lock') }}
+          # We always set "in-project" in poetry.toml to ensure a local .venv, as
+          # we require that for pyright and other pre-commit hooks.
+      - name: Install poetry dependencies
+        run: poetry install --all-extras --no-interaction
+        shell: bash
+      - id: ruff_version
+        uses: scene-connect/actions/python-package-manager/get_package_version@v5
+        with:
+          package: ruff
+          group: develop
+          package-manager: "poetry"
+          python-version: "3.12"
+      - name: Run pyright
+        run: poetry run pyright
+        shell: bash
+      - uses: chartboost/ruff-action@v1
+        with:
+          version: ${{ steps.ruff_version.outputs.version }}
+      - name: Set up environment
+        run: |
+          cp .env.ci .env
+      - name: Run pytest
+        uses: liskin/gh-problem-matcher-wrap@v3
+        env:
+          ENVIRONMENT: CI
+          SQLALCHEMY_DB_URI: "postgresql+asyncpg://postgres:postgres@localhost:5432/test"
+        with:
+          linters: pytest
+          run: poetry run python -m pytest

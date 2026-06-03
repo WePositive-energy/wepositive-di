@@ -1,0 +1,90 @@
+name: CI - push
+on:
+  push:
+    branches:
+      - release/*
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Always run for each PR to tag and build docker container for the PR,
+  # even if another is queued with another version tag.
+  cancel-in-progress: false
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: write # Read is required for actions/checkout and write to create a tag
+  actions: write # This is required to create a tag
+jobs:
+  poetry:
+    # Always run on push except for dependabot PRs.
+    if: github.actor != 'dependabot[bot]'
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      pre_release: ${{ steps.pre_release.outputs.pre_release }}
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install packaging
+      - uses: abatilo/actions-poetry@v3
+      - id: version
+        run: echo "version=`poetry version --short --no-interaction`" >> $GITHUB_OUTPUT
+      - id: package
+        run: echo "package=`poetry version --no-interaction | grep -o '[.[:alnum:]_-]\+$'`" >> $GITHUB_OUTPUT
+      - id: pre_release
+        name: Is the version pre-release
+        run: python -c "from packaging import version;print('pre_release=1') if version.parse('${{ steps.version.outputs.version }}').is_prerelease else print('pre_release=0')" >> $GITHUB_OUTPUT
+
+  git-tag:
+    needs: [poetry]
+    runs-on: ubuntu-22.04
+    if: needs.poetry.outputs.pre_release == '1' || github.ref_name == 'main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+      - run: git tag "${{ needs.poetry.outputs.version }}"
+      - run: git push origin "${{ needs.poetry.outputs.version }}"
+  docker-build-publish:
+    needs: [git-tag, poetry]
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-22.04
+    environment: ${{ startsWith(github.ref, 'refs/heads/dev') && 'dev' || startsWith(github.ref, 'refs/heads/main') && 'prod' || startsWith(github.ref, 'refs/heads/release/') && 'staging' }}
+    env:
+      DOCKER_BUILDKIT: 1
+      full_image_uri: "${{ secrets.AWS_PROJECT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/community-energy-manager"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: "arn:aws:iam::${{ secrets.AWS_PROJECT_ID }}:role/software-publishers"
+          aws-region: "${{ vars.AWS_REGION }}"
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          mask-password: "false"
+      - name: Extract release from branch
+        id: release
+        run: echo "name=${GITHUB_REF_NAME##*/}" >> $GITHUB_OUTPUT
+        shell: bash
+      - name: Build runtime image
+        uses: docker/build-push-action@v6
+        with:
+          build-args: BUILDKIT_INLINE_CACHE=1
+          cache-from: ${{ env.full_image_uri }}:latest
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64
+          push: true
+          secrets: |
+            pypi-token=${{ secrets.CODEARTIFACT_TOKEN }}
+          tags: |
+            ${{ env.full_image_uri }}:${{ steps.release.outputs.name }}
+            ${{ env.full_image_uri }}:${{ github.sha }}
+            ${{ env.full_image_uri }}:${{ needs.poetry.outputs.version }}

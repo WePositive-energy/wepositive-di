@@ -1,0 +1,67 @@
+default_install_hook_types:
+  - pre-commit
+  - pre-merge-commit
+  - pre-rebase
+  - pre-push
+default_stages:
+  - pre-commit
+  - pre-merge-commit
+  - pre-rebase
+  - pre-push
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-ast
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: debug-statements
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff
+        language: system
+        entry: poetry run ruff check --fix --force-exclude
+        files: ".py$"
+        pass_filenames: true
+      - id: pyright
+        name: pyright
+        language: system
+        entry: poetry run pyright
+        files: "(.py|.pyi)$"
+        pass_filenames: true
+      - id: poetry-check
+        name: poetry check format of pyproject.toml
+        language: system
+        entry: poetry check --no-interaction --quiet
+        files: "^pyproject.toml$"
+        pass_filenames: false
+      - id: poetry-lock-check
+        name: poetry lock check
+        language: system
+        entry: poetry check --lock --no-interaction
+        files: "^(poetry.lock|pyproject.toml)$"
+        pass_filenames: false
+      - id: poetry-install
+        name: poetry install
+        entry: poetry install --all-extras
+        language: system
+        pass_filenames: false
+        require_serial: true
+      - id: poetry-version-changed
+        name: poetry version changed
+        language: system
+        entry: sh -c 'git fetch && ! git --no-pager diff origin/dev --quiet --exit-code -G "^version" -- pyproject.toml'
+        pass_filenames: false
+      - id: pytest
+        name: pytest
+        language: system
+        entry: poetry run pytest
+        pass_filenames: false
+        stages:
+          - pre-push

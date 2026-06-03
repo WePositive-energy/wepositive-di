@@ -1,0 +1,96 @@
+name: CI - push
+on:
+  push:
+    branches:
+      - dev
+      - main
+      - release/*
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Always run for each PR to tag and build docker container for the PR,
+  # even if another is queued with another version tag.
+  cancel-in-progress: false
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: write    # This is required for actions/checkout and create a tag
+  actions: write
+jobs:
+  poetry:
+    # Always run on push except for dependabot PRs.
+    # Check actor (auto-merge), head_commit author (squash/rebase merge), and
+    # head_commit message (merge commit includes the dependabot/ branch name).
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      github.event.head_commit.author.username != 'dependabot[bot]' &&
+      !contains(github.event.head_commit.message, 'dependabot/')
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      pre_release: ${{ steps.pre_release.outputs.pre_release }}
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install packaging
+      - uses: abatilo/actions-poetry@v3
+      - uses: actions/cache@v4
+        name: Setup cache
+        with:
+          path: ./.venv
+          key: poetry-lock-${{ hashFiles('poetry.lock') }}
+          # We always set "in-project" in poetry.toml to ensure a local .venv, as
+          # we require that for pyright and other pre-commit hooks.
+      - id: version
+        run: echo "version=`poetry version --short --no-interaction`" >> $GITHUB_OUTPUT
+      - id: package
+        run: echo "package=`poetry version --no-interaction | grep -o '[.[:alnum:]_-]\+$'`" >> $GITHUB_OUTPUT
+      - id: pre_release
+        name: Is the version pre-release
+        run: python -c "from packaging import version;print('pre_release=1') if version.parse('${{ steps.version.outputs.version }}').is_prerelease else print('pre_release=0')" >> $GITHUB_OUTPUT
+  git-tag:
+    needs: [poetry]
+    runs-on: ubuntu-22.04
+    if: needs.poetry.outputs.pre_release == '1' || github.ref_name == 'main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+      - run: git tag "${{ needs.poetry.outputs.version }}"
+      - run: git push origin "${{ needs.poetry.outputs.version }}"
+  poetry-build-publish:
+    needs: [git-tag]
+    if: >-
+      github.actor != 'dependabot[bot]' &&
+      github.event.head_commit.author.username != 'dependabot[bot]' &&
+      !contains(github.event.head_commit.message, 'dependabot/')
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install packaging
+      - uses: abatilo/actions-poetry@v3
+      - uses: actions/cache@v4
+        name: Setup cache
+        with:
+          path: ./.venv
+          key: poetry-lock-${{ hashFiles('poetry.lock') }}
+          # We always set "in-project" in poetry.toml to ensure a local .venv, as
+          # we require that for pyright and other pre-commit hooks.
+      - name: Install poetry dependencies
+        run: poetry install --all-extras --no-interaction
+        shell: bash
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: "arn:aws:iam::354918389256:role/software-publishers"
+          aws-region: "eu-west-1"
+      - name: set codeartifact authorization token
+        run: |
+          echo "POETRY_PYPI_TOKEN_WEPOSITIVE_AWS_PUBLISH=$(aws codeartifact get-authorization-token --domain-owner 354918389256 --domain repositories --query 'authorizationToken' --output text)" >> $GITHUB_ENV
+      - name: Build and publish
+        run: poetry publish --build --repository=wepositive_aws_publish --no-interaction -vvv

@@ -1,0 +1,13 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    allow:
+      - dependency-type: all
+    directory: "/"
+    reviewers:
+      - "WePositive-energy/energy-sharing-hub"
+    schedule:
+      interval: "daily"
+      time: "08:00"
+      timezone: "Europe/Amsterdam"
+    insecure-external-code-execution: allow # apparently pip executes code see https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#insecure-external-code-execution

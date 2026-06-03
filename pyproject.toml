@@ -1,0 +1,105 @@
+[project]
+name = "wepositive-di"
+version = "0.1.0"
+description = "Adaptation of the dependency-injector framework to provide a simpler DI syntax slimiar to FastAPI's."
+authors = [
+    {name = "Dolf Andringa",email = "dolf@wepositive.energy"}
+]
+license = "Apache-2.0"
+requires-python = ">=3.12"
+packages = [{include = "wepositive_di", from = "src"}]
+dependencies = [
+    "dependency-injector (>=4.49.0,<5.0.0)",
+    "aiologic (>=0.16.0,<0.17.0)",
+    "pydantic (>=2.13.4,<3.0.0)",
+    "pydantic-settings (>=2.14.1,<3.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pytest (>=9.0.3,<10.0.0)",
+    "pytest-mock (>=3.15.1,<4.0.0)",
+    "pyright (>=1.1.410,<2.0.0)",
+    "pre-commit (>=4.6.0,<5.0.0)",
+    "pytest-cov (>=7.1.0,<8.0.0)",
+    "ruff (>=0.15.15,<0.16.0)",
+    "pytest-asyncio (>=1.4.0,<2.0.0)",
+    "mkdocs-material (>=9.7.6,<10.0.0)",
+    "mkdocstrings (>=1.0.4,<2.0.0)",
+    "mkdocs-autorefs (>=1.4.4,<2.0.0)"
+]
+
+[tool.pyright]
+stubPath = "./typings/"
+reportImportCycles = false
+typeCheckingMode = "strict"
+venv = ".venv"
+venvPath = "."
+exclude = [
+    "./typings/*",
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*",
+    "alembic/*",
+]
+
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+    "--cov",
+]
+asyncio_mode = "auto"
+asyncio_default_test_loop_scope = "session"
+asyncio_default_fixture_loop_scope = "session"
+markers = [
+    "skip_wire: skip wiring dependencies for this test. Useful if you want to make dependencies in the test.",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["./src/wepositive_di"]
+
+[tool.coverage.report]
+exclude_also = [
+    "if .*TYPE_CHECKING:",
+    "@overload",
+    "@typing.overload",
+    "class .*\\(Protocol\\):",
+    "@abc.abstractmethod",
+    "@abstractmethod",
+    "\\A(?s:.*# pragma: exclude file.*)\\Z"
+]
+fail_under = 100
+show_missing = true
+
+[tool.ruff.lint]
+ignore = ["PT013"]
+select = [
+    "E4",
+    "E7",
+    "E9",
+    "F",
+    "BLE",
+    "ASYNC",
+    "DTZ",
+    "C4",
+    "T10",
+    "T20",
+    "PTH",
+    "UP",
+    "I",
+    "LOG",
+    "G",
+    "PT",
+]
+extend-safe-fixes = ["UP"]
+
+[tool.ruff]
+extend-exclude = ["typings/*", "alembic/*"]
+target-version = "py312"
