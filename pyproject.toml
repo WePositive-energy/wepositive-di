@@ -1,6 +1,6 @@
 [project]
 name = "wepositive-di"
-version = "0.1.2"
+version = "0.1.3a0"
 description = "Dependency injection and context management helpers inspired by FastAPI and built on dependency-injector."
 readme = "docs/index.md"
 authors = [
@@ -36,7 +36,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://wepositive.energy"
-Documentation = "https://wepositive-energy.github.io/wepositive-di/"
+Documentation = "https://wepositive-di.readthedocs.io/"
 Repository = "https://github.com/WePositive-energy/wepositive-di"
 Issues = "https://github.com/WePositive-energy/wepositive-di/issues"
 Company = "https://wepositive.energy"
