@@ -21,4 +21,5 @@ build:
       # - poetry install --with dev,docs
     build:
       # Build into RTD’s expected output directory
-      - poetry run mkdocs build --clean
+      html:
+        - poetry run mkdocs build --clean
