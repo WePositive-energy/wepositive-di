@@ -25,7 +25,8 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       pre_release: ${{ steps.pre_release.outputs.pre_release }}
-      repository: ${{ steps.repository.outputs.repository }}
+      repository: ${{ steps.publish_policy.outputs.repository }}
+      should_publish: ${{ steps.publish_policy.outputs.should_publish }}
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -48,15 +49,8 @@ jobs:
       - id: pre_release
         name: Is the version pre-release
         run: python -c "from packaging import version;print('pre_release=1') if version.parse('${{ steps.version.outputs.version }}').is_prerelease else print('pre_release=0')" >> $GITHUB_OUTPUT
-      - id: repository
-        name: Select package repository
-        run: |
-          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
-            echo "repository=pypi" >> "$GITHUB_OUTPUT"
-          else
-            echo "repository=testpypi" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Validate branch version policy
+      - id: publish_policy
+        name: Validate branch version policy
         run: |
           python <<'PY'
           import os
@@ -64,22 +58,52 @@ jobs:
 
           branch = os.environ["GITHUB_REF_NAME"]
           version = Version("${{ steps.version.outputs.version }}")
+          output_path = os.environ["GITHUB_OUTPUT"]
+
+          repository = "testpypi"
+          should_publish = "1"
+          reason = ""
 
           if branch == "main":
               if version.is_prerelease:
-                  raise SystemExit("main publishes to PyPI and must use a stable Poetry version")
+                  should_publish = "0"
+                  reason = f"main publishes to PyPI only for stable versions, got {version}"
+              else:
+                  repository = "pypi"
           elif branch == "dev":
               if version.pre is None or version.pre[0] != "a":
-                  raise SystemExit("dev publishes to TestPyPI and must use an alpha Poetry version")
+                  should_publish = "0"
+                  reason = f"dev publishes to TestPyPI only for alpha versions, got {version}"
           elif branch.startswith("release/"):
-              if version.pre is None or version.pre[0] != "rc":
-                  raise SystemExit("release/* publishes to TestPyPI and must use an rc Poetry version")
+              if version.is_prerelease:
+                  if version.pre is None or version.pre[0] != "rc":
+                      should_publish = "0"
+                      reason = (
+                          "release/* publishes prereleases to TestPyPI only for rc versions, "
+                          f"got {version}"
+                      )
+              else:
+                  should_publish = "0"
+                  reason = (
+                      f"{branch} has stable version {version}; "
+                      "package publishing is skipped until main."
+                  )
           else:
-              raise SystemExit(f"Unsupported publish branch: {branch}")
+              should_publish = "0"
+              reason = f"Unsupported publish branch: {branch}"
+
+          with open(output_path, "a", encoding="utf-8") as output:
+              print(f"repository={repository}", file=output)
+              print(f"should_publish={should_publish}", file=output)
+
+          if should_publish == "0":
+              print(reason)
           PY
       - name: Build package
+        if: steps.publish_policy.outputs.should_publish == '1'
         run: poetry build --no-interaction
       - uses: actions/upload-artifact@v4
+        if: steps.publish_policy.outputs.should_publish == '1'
         with:
           name: python-package
           path: dist/
@@ -91,6 +115,7 @@ jobs:
         with:
           fetch-tags: true
       - name: Tag Poetry version
+        if: needs.poetry.outputs.should_publish == '1'
         run: |
           version="${{ needs.poetry.outputs.version }}"
           if git rev-parse --verify --quiet "refs/tags/${version}"; then
@@ -107,6 +132,7 @@ jobs:
   poetry-build-publish:
     needs: [poetry, git-tag]
     if: >-
+      needs.poetry.outputs.should_publish == '1' &&
       github.actor != 'dependabot[bot]' &&
       github.event.head_commit.author.username != 'dependabot[bot]' &&
       !contains(github.event.head_commit.message, 'dependabot/')
