@@ -36,7 +36,7 @@
 
 ### Installation
 ```bash
-poetry install
+poetry install --with dev,docs
 poetry run pre-commit install
 ```
 
