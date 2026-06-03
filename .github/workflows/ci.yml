@@ -54,3 +54,34 @@ jobs:
         with:
           linters: pytest
           run: poetry run python -m pytest
+  release-to-main-version-gate:
+    needs: [linting-and-tests]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install packaging
+      - uses: abatilo/actions-poetry@v3
+      - name: Require stable version for release PRs to main
+        run: |
+          python <<'PY'
+          import os
+          from packaging.version import Version
+
+          base_branch = os.environ["GITHUB_BASE_REF"]
+          head_branch = os.environ["GITHUB_HEAD_REF"]
+
+          if base_branch != "main" or not head_branch.startswith("release/"):
+              print("Not a release/* PR to main; stable version gate does not apply.")
+              raise SystemExit(0)
+
+          version = Version(os.popen("poetry version --short --no-interaction").read().strip())
+          if version.is_prerelease:
+              raise SystemExit(
+                  f"release/* PRs to main must use a stable Poetry version, got {version}"
+              )
+
+          print(f"release/* PR to main uses stable Poetry version {version}.")
+          PY
