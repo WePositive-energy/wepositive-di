@@ -1,6 +1,6 @@
 [project]
 name = "wepositive-di"
-version = "0.1.2a5"
+version = "0.1.2a6"
 description = "Dependency injection and context management helpers inspired by FastAPI and built on dependency-injector."
 readme = "docs/index.md"
 authors = [
