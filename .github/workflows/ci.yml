@@ -1,7 +1,7 @@
 name: CI
 on:
   pull_request:
-    branches::
+    branches:
       - dev
       - main
   workflow_dispatch:
@@ -20,24 +20,6 @@ jobs:
   linting-and-tests:
     needs: [version_changed]
     runs-on: ubuntu-22.04
-    services:
-      # Label used to access the service container
-      postgres:
-        # Docker Hub image
-        image: postgres
-        # Provide the password for postgres
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test
-        # Set health checks to wait until postgres has started
-        ports:
-          - "5432:5432"
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -67,14 +49,8 @@ jobs:
       - uses: chartboost/ruff-action@v1
         with:
           version: ${{ steps.ruff_version.outputs.version }}
-      - name: Set up environment
-        run: |
-          cp .env.ci .env
       - name: Run pytest
         uses: liskin/gh-problem-matcher-wrap@v3
-        env:
-          ENVIRONMENT: CI
-          SQLALCHEMY_DB_URI: "postgresql+asyncpg://postgres:postgres@localhost:5432/test"
         with:
           linters: pytest
           run: poetry run python -m pytest

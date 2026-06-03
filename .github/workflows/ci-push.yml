@@ -1,4 +1,4 @@
-name: CI - push
+name: Publish Python package
 on:
   push:
     branches:
@@ -9,13 +9,10 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  # Always run for each PR to tag and build docker container for the PR,
-  # even if another is queued with another version tag.
+  # Always run each push so every package version can be tagged and published.
   cancel-in-progress: false
 permissions:
-  id-token: write   # This is required for requesting the JWT
-  contents: write    # This is required for actions/checkout and create a tag
-  actions: write
+  contents: write
 jobs:
   poetry:
     # Always run on push except for dependabot PRs.
@@ -28,6 +25,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       pre_release: ${{ steps.pre_release.outputs.pre_release }}
+      repository: ${{ steps.repository.outputs.repository }}
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -50,47 +48,83 @@ jobs:
       - id: pre_release
         name: Is the version pre-release
         run: python -c "from packaging import version;print('pre_release=1') if version.parse('${{ steps.version.outputs.version }}').is_prerelease else print('pre_release=0')" >> $GITHUB_OUTPUT
+      - id: repository
+        name: Select package repository
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            echo "repository=pypi" >> "$GITHUB_OUTPUT"
+          else
+            echo "repository=testpypi" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Validate branch version policy
+        run: |
+          python <<'PY'
+          import os
+          from packaging.version import Version
+
+          branch = os.environ["GITHUB_REF_NAME"]
+          version = Version("${{ steps.version.outputs.version }}")
+
+          if branch == "main":
+              if version.is_prerelease:
+                  raise SystemExit("main publishes to PyPI and must use a stable Poetry version")
+          elif branch == "dev":
+              if version.pre is None or version.pre[0] != "a":
+                  raise SystemExit("dev publishes to TestPyPI and must use an alpha Poetry version")
+          elif branch.startswith("release/"):
+              if version.pre is None or version.pre[0] != "rc":
+                  raise SystemExit("release/* publishes to TestPyPI and must use an rc Poetry version")
+          else:
+              raise SystemExit(f"Unsupported publish branch: {branch}")
+          PY
+      - name: Build package
+        run: poetry build --no-interaction
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-package
+          path: dist/
   git-tag:
     needs: [poetry]
     runs-on: ubuntu-22.04
-    if: needs.poetry.outputs.pre_release == '1' || github.ref_name == 'main'
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-tags: true
-      - run: git tag "${{ needs.poetry.outputs.version }}"
-      - run: git push origin "${{ needs.poetry.outputs.version }}"
+      - name: Tag Poetry version
+        run: |
+          version="${{ needs.poetry.outputs.version }}"
+          if git rev-parse --verify --quiet "refs/tags/${version}"; then
+            tagged_commit="$(git rev-list -n 1 "${version}")"
+            if [[ "${tagged_commit}" != "${GITHUB_SHA}" ]]; then
+              echo "Tag ${version} already exists on ${tagged_commit}, not ${GITHUB_SHA}" >&2
+              exit 1
+            fi
+            echo "Tag ${version} already exists on this commit"
+          else
+            git tag "${version}"
+            git push origin "${version}"
+          fi
   poetry-build-publish:
-    needs: [git-tag]
+    needs: [poetry, git-tag]
     if: >-
       github.actor != 'dependabot[bot]' &&
       github.event.head_commit.author.username != 'dependabot[bot]' &&
       !contains(github.event.head_commit.message, 'dependabot/')
     runs-on: ubuntu-22.04
+    environment: ${{ needs.poetry.outputs.repository }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/download-artifact@v4
         with:
-          python-version: "3.12"
-      - run: pip install packaging
-      - uses: abatilo/actions-poetry@v3
-      - uses: actions/cache@v4
-        name: Setup cache
+          name: python-package
+          path: dist/
+      - name: Publish to PyPI
+        if: needs.poetry.outputs.repository == 'pypi'
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          path: ./.venv
-          key: poetry-lock-${{ hashFiles('poetry.lock') }}
-          # We always set "in-project" in poetry.toml to ensure a local .venv, as
-          # we require that for pyright and other pre-commit hooks.
-      - name: Install poetry dependencies
-        run: poetry install --all-extras --no-interaction
-        shell: bash
-      - name: configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v4
+          password: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Publish to TestPyPI
+        if: needs.poetry.outputs.repository == 'testpypi'
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          role-to-assume: "arn:aws:iam::354918389256:role/software-publishers"
-          aws-region: "eu-west-1"
-      - name: set codeartifact authorization token
-        run: |
-          echo "POETRY_PYPI_TOKEN_WEPOSITIVE_AWS_PUBLISH=$(aws codeartifact get-authorization-token --domain-owner 354918389256 --domain repositories --query 'authorizationToken' --output text)" >> $GITHUB_ENV
-      - name: Build and publish
-        run: poetry publish --build --repository=wepositive_aws_publish --no-interaction -vvv
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          repository-url: https://test.pypi.org/legacy/
