@@ -42,29 +42,25 @@ registry = containers.DynamicContainer()
 
 def _detect_lifecycle(
     func: Callable[..., Any],
-    cm_qualname: str,
     enter_attr: str,
     exit_attr: str,
     cache_attr: str,
+    generator_predicate: Callable[[Any], bool],
 ) -> bool:
     cached = getattr(func, cache_attr, None)
     if cached is not None:
         return cached  # type: ignore[return-value]
 
-    code = getattr(func, "__code__", None)
-    if getattr(code, "co_qualname", None) == cm_qualname:
-        result = True
-    else:
-        result = False
-        try:
-            hints = typing.get_type_hints(func)
-            return_type = hints.get("return")
-            if return_type is not None:
-                result = hasattr(return_type, enter_attr) and hasattr(
-                    return_type, exit_attr
-                )
-        except Exception:  # noqa: BLE001
-            pass
+    result = generator_predicate(getattr(func, "__wrapped__", None))
+    try:
+        hints = typing.get_type_hints(func)
+        return_type = hints.get("return")
+        if return_type is not None:
+            result = result or (
+                hasattr(return_type, enter_attr) and hasattr(return_type, exit_attr)
+            )
+    except Exception:  # noqa: BLE001
+        pass
 
     try:
         setattr(func, cache_attr, result)
@@ -84,10 +80,10 @@ def _is_async_lifecycle_annotation(func: Callable[..., Any]) -> bool:
     """
     return _detect_lifecycle(
         func,
-        "asynccontextmanager.<locals>.helper",
         "__aenter__",
         "__aexit__",
         "_di_is_async_lifecycle",
+        inspect.isasyncgenfunction,
     )
 
 
@@ -102,10 +98,10 @@ def _is_sync_lifecycle_annotation(func: Callable[..., Any]) -> bool:
     """
     return _detect_lifecycle(
         func,
-        "contextmanager.<locals>.helper",
         "__enter__",
         "__exit__",
         "_di_is_sync_lifecycle",
+        inspect.isgeneratorfunction,
     )
 
 
@@ -479,7 +475,7 @@ def inject(
 def inject(func: Callable[..., Any]) -> Callable[..., Any]: ...
 
 
-def inject[T: Callable[..., Any]](func: T) -> T:
+def inject(func: T) -> T:
     """Decorator that resolves Depends markers in function arguments.
 
     Works with both sync and async functions.

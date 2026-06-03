@@ -1,12 +1,15 @@
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from typing import TypeVar
 from uuid import UUID
 
 import aiologic
 from pydantic import BaseModel
 
 from wepositive_di.di import register_provider
+
+ContextTypeT = TypeVar("ContextTypeT", bound=BaseModel)
 
 
 class ContextStorage(ABC):
@@ -23,7 +26,7 @@ class ContextStorage(ABC):
     """
 
     @abstractmethod
-    def get_context[ContextTypeT: BaseModel](
+    def get_context(
         self, ctx_type: type[ContextTypeT], context_id: UUID
     ) -> AbstractAsyncContextManager[ContextTypeT]:
         """Get a context for the given type and context_id.
@@ -44,7 +47,7 @@ class ContextStorage(ABC):
         ...
 
     @abstractmethod
-    async def store_context[ContextTypeT: BaseModel](
+    async def store_context(
         self, ctx_type: type[ContextTypeT], context_id: UUID, context: ContextTypeT
     ) -> None:
         """Store a new context.
@@ -60,7 +63,7 @@ class ContextStorage(ABC):
         ...
 
     @abstractmethod
-    async def get_context_snapshot[ContextTypeT: BaseModel](
+    async def get_context_snapshot(
         self, ctx_type: type[ContextTypeT], context_id: UUID
     ) -> ContextTypeT:
         """Get a read-only snapshot source without taking the context lock.
@@ -104,7 +107,7 @@ class InMemoryContextStorage(ContextStorage):
             return self._locks[ctx_type][context_id]
 
     @asynccontextmanager
-    async def get_context[ContextTypeT: BaseModel](  # pyright: ignore [reportReturnType]
+    async def get_context(  # pyright: ignore [reportReturnType]
         self, ctx_type: type[ContextTypeT], context_id: UUID
     ) -> AsyncGenerator[ContextTypeT]:
         lock = await self._get_lock(ctx_type, context_id)
@@ -114,7 +117,7 @@ class InMemoryContextStorage(ContextStorage):
                 raise KeyError(f"No {ctx_type.__name__} context known for {context_id}")
             yield type_store[context_id]  # pyright: ignore [reportReturnType]
 
-    async def store_context[ContextTypeT: BaseModel](
+    async def store_context(
         self,
         ctx_type: type[ContextTypeT],
         context_id: UUID,
@@ -131,7 +134,7 @@ class InMemoryContextStorage(ContextStorage):
                 self._states[ctx_type] = {}
             self._states[ctx_type][context_id] = context
 
-    async def get_context_snapshot[ContextTypeT: BaseModel](
+    async def get_context_snapshot(
         self,
         ctx_type: type[ContextTypeT],
         context_id: UUID,
