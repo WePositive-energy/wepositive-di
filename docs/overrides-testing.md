@@ -15,6 +15,11 @@ They are useful for tests, local development, and deployment-specific wiring.
 Override functions should be plain callables. Do not decorate the replacement
 with `@register_provider()`.
 
+Overrides preserve the lifecycle of the original provider. If the original
+provider is registered as a singleton, the replacement is also cached as a
+singleton. If the original provider is registered as a context manager, the
+replacement is also entered and exited as a context manager.
+
 ## Decorator override
 
 ```python

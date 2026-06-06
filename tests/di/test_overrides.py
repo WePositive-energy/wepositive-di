@@ -383,6 +383,32 @@ def test_sync_func_wrapper_resolves_overridden_dep() -> None:
     clear_overrides()
 
 
+def test_overridden_sync_singleton_provider_remains_singleton() -> None:
+    call_count = 0
+
+    @register_provider(singleton=True)
+    def original() -> object:
+        return object()
+
+    def replacement() -> object:
+        nonlocal call_count
+        call_count += 1
+        return object()
+
+    @inject
+    def consumer(value: object = Depends[original]) -> object:
+        return value
+
+    with provider_overrides({original: replacement}):
+        first = consumer()
+        second = consumer()
+
+    assert first is second
+    assert call_count == 1
+
+    clear_overrides()
+
+
 # ── @override_provider used as a decorator ────────────────────────────────────
 
 

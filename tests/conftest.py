@@ -25,6 +25,8 @@ def _reset_di_registry() -> None:
         set[str], getattr(di, "_context_manager_providers")
     )
     context_manager_providers.clear()
+    singleton_providers = cast(set[str], getattr(di, "_singleton_providers"))
+    singleton_providers.clear()
 
 
 @pytest.fixture(autouse=True)
