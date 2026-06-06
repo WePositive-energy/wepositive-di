@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 _registered_modules: set[Any] = set()
 _provider_overrides: dict[str, providers.Provider[Any]] = {}
 _context_manager_providers: set[str] = set()
+_singleton_providers: set[str] = set()
 
 registry = containers.DynamicContainer()
 
@@ -114,6 +115,10 @@ def _lookup_provider(name: str) -> Any:
 
 def _uses_context_manager(provider_name: str) -> bool:
     return provider_name in _context_manager_providers
+
+
+def _uses_singleton(provider_name: str) -> bool:
+    return provider_name in _singleton_providers
 
 
 def _resolve_deps_sync(
@@ -255,6 +260,10 @@ def register_provider(
             _context_manager_providers.add(provider_name)
         else:
             _context_manager_providers.discard(provider_name)
+        if singleton:
+            _singleton_providers.add(provider_name)
+        else:
+            _singleton_providers.discard(provider_name)
 
         module = inspect.getmodule(func)
         if module is not None:  # pragma: no branch
@@ -290,6 +299,7 @@ def setup(
             _provider_overrides[provider_name] = _create_provider(
                 override_func,
                 provider_name=provider_name,
+                singleton=_uses_singleton(provider_name),
                 context_manager=_uses_context_manager(provider_name),
             )
 
@@ -352,6 +362,7 @@ def override_provider(
             _provider_overrides[provider_name] = _create_provider(
                 func,
                 provider_name=provider_name,
+                singleton=_uses_singleton(provider_name),
                 context_manager=_uses_context_manager(provider_name),
             )
             return func
@@ -362,6 +373,7 @@ def override_provider(
     _provider_overrides[provider_name] = _create_provider(
         override,
         provider_name=provider_name,
+        singleton=_uses_singleton(provider_name),
         context_manager=_uses_context_manager(provider_name),
     )
     return None
@@ -400,6 +412,7 @@ def provider_overrides(
         _provider_overrides[provider_name] = _create_provider(
             override,
             provider_name=provider_name,
+            singleton=_uses_singleton(provider_name),
             context_manager=_uses_context_manager(provider_name),
         )
 
