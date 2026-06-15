@@ -2,19 +2,19 @@
 
 [[package]]
 name = "aiologic"
-version = "0.16.0"
+version = "0.17.0"
 description = "GIL-powered* locking library for Python"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "aiologic-0.16.0-py3-none-any.whl", hash = "sha256:e00ce5f68c5607c864d26aec99c0a33a83bdf8237aa7312ffbb96805af67d8b6"},
-    {file = "aiologic-0.16.0.tar.gz", hash = "sha256:c267ccbd3ff417ec93e78d28d4d577ccca115d5797cdbd16785a551d9658858f"},
+    {file = "aiologic-0.17.0-py3-none-any.whl", hash = "sha256:1bf4d3e4314df2bcb06a9e696417204e206ab50e10ec98d28d157e2e57634f74"},
+    {file = "aiologic-0.17.0.tar.gz", hash = "sha256:65aa058e858c94cd208badb188e7f00b54dcabb3ba85b34f794db98074d108b9"},
 ]
 
 [package.dependencies]
 sniffio = ">=1.3.0"
-typing-extensions = {version = ">=4.6.0", markers = "python_version < \"3.13\""}
+typing-extensions = {version = ">=4.10.0", markers = "python_version < \"3.13\""}
 wrapt = ">=1.16.0"
 
 [package.extras]
@@ -1771,4 +1771,4 @@ dev = ["pytest", "setuptools"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10"
-content-hash = "f153f89a5469027fb0fa25d0f56391e21125f91d206f41149625564fec129d86"
+content-hash = "dee72024c6a500bdc8401c0d147659bb51774b1fc013ed66b37cb0b11ce74c44"
