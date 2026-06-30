@@ -63,6 +63,21 @@ class ContextStorage(ABC):
         ...
 
     @abstractmethod
+    async def delete_context(
+        self, ctx_type: type[ContextTypeT], context_id: UUID
+    ) -> None:
+        """Delete a context.
+
+        Args:
+            ctx_type: The type of context to delete
+            context_id: The UUID identifying the context
+
+        Raises:
+            KeyError: If the context does not exist
+        """
+        ...
+
+    @abstractmethod
     async def get_context_snapshot(
         self, ctx_type: type[ContextTypeT], context_id: UUID
     ) -> ContextTypeT:
@@ -133,6 +148,27 @@ class InMemoryContextStorage(ContextStorage):
             if ctx_type not in self._states:
                 self._states[ctx_type] = {}
             self._states[ctx_type][context_id] = context
+
+    async def delete_context(
+        self,
+        ctx_type: type[ContextTypeT],
+        context_id: UUID,
+    ) -> None:
+        """Delete a context and its lock."""
+        lock = await self._get_lock(ctx_type, context_id)
+        async with lock:
+            type_store = self._states.get(ctx_type, {})
+            if context_id not in type_store:
+                raise KeyError(f"No {ctx_type.__name__} context known for {context_id}")
+            del type_store[context_id]
+            if not type_store:
+                self._states.pop(ctx_type, None)
+
+        async with self._locks_lock:
+            type_locks = self._locks.get(ctx_type, {})
+            type_locks.pop(context_id, None)
+            if not type_locks:
+                self._locks.pop(ctx_type, None)
 
     async def get_context_snapshot(
         self,
